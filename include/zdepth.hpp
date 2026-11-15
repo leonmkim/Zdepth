@@ -365,7 +365,8 @@ protected:
         int width,
         int height,
         uint16_t* depth,
-        const uint16_t* prev_depth);
+        const uint16_t* prev_depth,
+        uint16_t depth_mask);
 
     void WriteCompressedFile(
         int width,

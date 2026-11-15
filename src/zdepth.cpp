@@ -953,7 +953,12 @@ DepthResult DepthCompressor::Decompress(
     }
     DecodeZeroes(width, height, depth);
 
-    success = DecompressImage(width, height, depth, prev_depth);
+    // In 8191mm mode, 14-bit zigzag packing preserves residuals modulo
+    // 8192. Trend predictors can exceed that range. Restore each pixel
+    // before it becomes a spatial/temporal predictor for later pixels.
+    const uint16_t depth_mask = encode_mode == EncodeMode::kNotQuantized8191mm
+        ? static_cast<uint16_t>(GetCutoffDepth(encode_mode) - 1) : 0xffff;
+    success = DecompressImage(width, height, depth, prev_depth, depth_mask);
     if (!success) {
         return DepthResult::Corrupted;
     }
@@ -966,7 +971,8 @@ bool DepthCompressor::DecompressImage(
     int width,
     int height,
     uint16_t* depth,
-    const uint16_t* prev_depth)
+    const uint16_t* prev_depth,
+    uint16_t depth_mask)
 {
     const int cy = height / kBlockSize;
     const int cx = width / kBlockSize;
@@ -1012,7 +1018,7 @@ bool DepthCompressor::DecompressImage(
                         }
 
                         d = UndoPrediction(zigzag, Predict_Larger(left0, up0));
-                        row[x] = static_cast<uint16_t>( d );
+                        row[x] = static_cast<uint16_t>( d ) & depth_mask;
                     }
                 }
 
@@ -1073,7 +1079,7 @@ bool DepthCompressor::DecompressImage(
                         break;
                     }
 
-                    row[x] = static_cast<uint16_t>( d );
+                    row[x] = static_cast<uint16_t>( d ) & depth_mask;
                 }
             } // next depth pixel
         }
